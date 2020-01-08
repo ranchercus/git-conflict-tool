@@ -13,18 +13,52 @@ import (
 )
 
 const (
-	fileName      = "/Users/zac/Projects/vsc-go/rancher/src/git-conflict-tool/changelist"
+	fileName      = "changelist"
 	conflicts_cmd = "git diff --name-only --diff-filter=U"
 )
 
-var yoursList = []string{}
+var ignoreList = []string{}
 
 func main() {
 	conflicts := runCmd(conflicts_cmd)
 	if len(conflicts) == 0 {
+		fmt.Println("No conflict")
 		os.Exit(0)
 	}
 
+	loadChangeList()
+
+	for _, v := range conflicts {
+		if v == "" {
+			continue
+		}
+		add := false
+		var res []string
+		opt := resolveOption(v)
+		switch opt {
+		case "ours":
+			fmt.Println("ours: " + v)
+			res = runCmd("git checkout --ours " + v)
+			add = true
+		case "theirs":
+			fmt.Println("theirs: " + v)
+			res = runCmd("git checkout --theirs " + v)
+			add = true
+		case "ignore":
+			fmt.Println("ignore: " + v)
+		case "warn":
+		}
+		if len(res) != 0 {
+			fmt.Sprintln(strings.Join(res, "||"))
+		} else {
+			if add {
+				runCmd("git add " + v)
+			}
+		}
+	}
+}
+
+func loadChangeList() {
 	content, err := ioutil.ReadFile(fileName)
 	if err != nil {
 		log.Fatal(err)
@@ -37,30 +71,7 @@ func main() {
 			break
 		}
 		if len(line) != 0 {
-			yoursList = append(yoursList, string(line))
-		}
-	}
-
-	for _, v := range conflicts {
-		if v == "" {
-			continue
-		}
-		var res []string
-		opt := resolveOption(v)
-		switch opt {
-		case "ours":
-			fmt.Println("ours: " + v)
-			res = runCmd("git checkout --ours " + v)
-		case "theirs":
-			fmt.Println("theirs: " + v)
-			res = runCmd("git checkout --theirs " + v)
-		case "ignore":
-		case "warn":
-		}
-		if len(res) != 0 {
-			fmt.Sprintln(strings.Join(res, "||"))
-		} else {
-			runCmd("git add " + v)
+			ignoreList = append(ignoreList, string(line))
 		}
 	}
 }
@@ -108,16 +119,16 @@ func runCmd(command string) []string {
 }
 
 func resolveOption(name string) string {
-	yours := false
+	ignore := false
 
-	for _, v := range yoursList {
+	for _, v := range ignoreList {
 		if strings.TrimSpace(v) == strings.TrimSpace(name) {
-			yours = true
+			ignore = true
 			break
 		}
 	}
-	if yours {
-		return "ours"
+	if ignore {
+		return "ignore"
 	} else {
 		return "theirs"
 	}
