@@ -27,6 +27,10 @@ func main() {
 	}
 
 	loadChangeList()
+	if len(ignoreList) == 0 {
+		fmt.Println("No changelist")
+		os.Exit(0)
+	}
 
 	for _, v := range conflicts {
 		if v == "" {
